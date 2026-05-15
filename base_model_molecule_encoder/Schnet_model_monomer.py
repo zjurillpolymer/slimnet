@@ -63,6 +63,7 @@ class SchNetConv(nn.Module):
     '''连续滤波卷积层'''
     def __init__(self,hidden_dim,rbf_dim=32):
         super().__init__()
+        self.rbf = RBFExpansion(n_rbf=rbf_dim, cutoff=4.0) #（edge_dim，1） -> （edge_dim,rbf_dim)
         self.filter_net = nn.Sequential(
             nn.Linear(rbf_dim, hidden_dim),
             ShiftedSoftplus(),
@@ -76,23 +77,24 @@ class SchNetConv(nn.Module):
         )
 
 
-    def forward(self, h, x, edge_index, rbf):
-        n=h.size(0)
-        i,j=edge_index
-        rel_pos=x[i]-x[j]
-        dist=rel_pos.norm(dim=-1,keepdim=True)
-        rbf_feat=rbf(dist)
+    def forward(self, h, x, edge_index):
+        '''x:positions of atoms;h:characters of atoms'''
+        n=h.size(0) # h:(num_atoms,hidden)
+        i,j=edge_index #edge_index (2,num_edges)
+        rel_pos=x[i]-x[j] # 位置向量
+        dist=rel_pos.norm(dim=-1,keepdim=True) # L2范数
+        rbf_feat=self.rbf(dist)
 
-        W=self.filter_net(rbf_feat)
-        m_ij=h[j]*W
+        W=self.filter_net(rbf_feat) # 将向量滤波，得到权重矩阵(num_edges,hidden_dim)
+        m_ij=h[j]*W # m_ij (num_edges,hidden_dim)
 
-        aggr=torch.zeros(n,h.size(1),device=h.device,dtype=h.dtype)
-        aggr=aggr.index_add(0,i,m_ij)
-        deg=torch.zeros(n,device=h.device,dtype=h.dtype)
-        deg=deg.index_add(0,i,torch.ones(m_ij.size(0),device=h.device,dtype=h.dtype))
-        aggr=aggr/deg.clamp(min=1).view(-1,1)
+        aggr=torch.zeros(n,h.size(1),device=h.device,dtype=h.dtype) # (n,hidden)
+        aggr=aggr.index_add(0,i,m_ij) # 聚合周围原子特征 (n,hidden)
+        deg=torch.zeros(n,device=h.device,dtype=h.dtype) # (n,）
+        deg=deg.index_add(0,i,torch.ones(m_ij.size(0),device=h.device,dtype=h.dtype)) # 计算自己的化学键数目
+        aggr=aggr/deg.clamp(min=1).view(-1,1) #求平均
 
-        h_new=self.update_net(h+aggr)
+        h_new=self.update_net(h+aggr)#聚合周围原子+自己
         return h_new
 
 
@@ -188,7 +190,6 @@ class Schnet_monomer(nn.Module):
     def __init__(self, num_atom_types=10, hidden_dim=128, n_layers=6,num_tasks=3):
         super().__init__()
         self.atom_embed = nn.Embedding(num_atom_types + 1, hidden_dim)
-        self.rbf = RBFExpansion(n_rbf=32, cutoff=4.0)
         self.convs = nn.ModuleList([
             SchNetConv(hidden_dim) for _ in range(n_layers)
         ])
@@ -200,7 +201,7 @@ class Schnet_monomer(nn.Module):
     def forward(self, z, pos, edge_index, batch=None):
         h = self.atom_embed(z)
         for conv in self.convs:
-            h = conv(h, pos, edge_index, self.rbf)
+            h = conv(h, pos, edge_index)
         alpha = self.alpha(h, batch).unsqueeze(-1)
         homo = self.homo(h, batch).unsqueeze(-1)
         lumo = self.lumo(h, batch).unsqueeze(-1)
