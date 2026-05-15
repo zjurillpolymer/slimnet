@@ -3,6 +3,7 @@ import pandas as pd
 import torch
 import numpy as np
 from rdkit import Chem
+from rdkit.Chem import AllChem
 from torch_geometric.data import Dataset, Data
 from torch_geometric.nn import global_mean_pool
 
@@ -45,9 +46,9 @@ def get_3d_structure(mol):
     """用 RDKit 生成 3D 构象，返回原子序数 z 和坐标 pos"""
     mol = Chem.AddHs(mol)
     try:
-        Chem.EmbedMolecule(mol, randomSeed=42)
+        AllChem.EmbedMolecule(mol, randomSeed=42)
     except:
-        Chem.EmbedMolecule(mol, useRandomCoords=True, randomSeed=42)
+        AllChem.EmbedMolecule(mol, useRandomCoords=True, randomSeed=42)
     conf = mol.GetConformer()
     z = torch.tensor([atom.GetAtomicNum() for atom in mol.GetAtoms()], dtype=torch.long)
     pos = torch.tensor(conf.GetPositions(), dtype=torch.float)
