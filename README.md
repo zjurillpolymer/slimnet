@@ -4,6 +4,19 @@ Scaling Law-Informed Machine Learning for predicting polymer properties.
 
 Implementation of the paper: [Scaling law-informed machine learning for predicting thermal and electrical properties of polymers: A physics-based approach](https://doi.org/10.1016/j.commatsci.2025.113887) (Xu et al., Computational Materials Science, 2025)
 
+## Results
+
+### QM9 pre-training (normalized MSE)
+
+| Encoder | Test loss |
+|:---|---:|
+| GATConv (2 layers) | 0.257 |
+| **SchNet (6 layers)** | **0.062** |
+
+SchNet with 3D coordinates significantly outperforms GAT on QM9 property prediction.
+
+### PI1070 polymer property prediction (under evaluation)
+
 ## Approach
 
 SLIMNet combines a graph neural network (GNN) with a physics-informed decoder built on polymer scaling laws:
@@ -22,8 +35,10 @@ QM9 pretraining → GNN → V_monomer → SLIMNet (scaling law + MLP) → polyme
 ```
 base_model_molecule_encoder/
 ├── download_qm9.py              QM9 dataset download & exploration
-├── gnn_model.py                 GNN model definition (for import)
-└── monomer_predict_GNN.py       QM9 pre-training script
+├── gnn_model.py                 GAT model definition (for import)
+├── monomer_predict_GNN.py       GAT QM9 pre-training script
+├── Schnet_model_monomer.py      SchNet model + training script
+└── best_schnet.pt               Pretrained SchNet weights
 
 decoder/
 ├── data_loader.py               PI1070 polymer dataset loader
