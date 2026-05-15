@@ -15,7 +15,15 @@ Implementation of the paper: [Scaling law-informed machine learning for predicti
 
 SchNet with 3D coordinates significantly outperforms GAT on QM9 property prediction.
 
-### PI1070 polymer property prediction (under evaluation)
+### PI1070 polymer property prediction (normalized MSE)
+
+| Encoder → SLIMNet | Test loss |
+|:---|---:|
+| GATConv (frozen) | 0.386 |
+| GATConv (fine-tune, lr=1e-5) | 0.374 |
+| **SchNet (fine-tune, lr=1e-5)** | **0.057** |
+
+SchNet-based SLIMNet achieves test loss of **0.057** (normalized MSE), a ~7× improvement over the GAT baseline, demonstrating the value of 3D molecular geometry in polymer property prediction.
 
 ## Approach
 
@@ -25,7 +33,7 @@ SLIMNet combines a graph neural network (GNN) with a physics-informed decoder bu
 QM9 pretraining → GNN → V_monomer → SLIMNet (scaling law + MLP) → polymer properties
 ```
 
-- **Base Model**: GATConv-based GNN pretrained on QM9 to predict monomer properties (HOMO, LUMO, dipole, polarizability)
+- **Base Model**: GATConv or **SchNet** GNN pretrained on QM9 to predict monomer properties (HOMO, LUMO, dipole, polarizability)
 - **Disordered phase**: Scaling law prediction `ϕ_disordered = α · β^γ`
 - **Ordered phase**: Neural network prediction from order parameters
 - **Final prediction**: `φ = ϕ_disordered + ϕ_ordered`
