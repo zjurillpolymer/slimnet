@@ -2,41 +2,35 @@ from torch import nn
 from torch_geometric.loader import DataLoader
 import torch
 from torch_geometric.datasets import QM9
+from torch_geometric.nn import global_mean_pool
 import numpy as np
 import torch.nn.functional as F
 
 
 '''划分train/valid/test三个集合'''
-dataset = QM9(root='../data/QM9')
-# print(dataset[0])
-np.random.seed(42)
-n=len(dataset)
-idx = np.random.permutation(n)
-n_train = int(0.8 * n)
-n_valid = int(0.1 * n)
-train_idx = idx[:n_train]
-valid_idx = idx[n_train:n_train + n_valid]
-test_idx = idx[n_train + n_valid:]
+if __name__ == '__main__':
+    dataset = QM9(root='../data/QM9')
+    np.random.seed(42)
+    n=len(dataset)
+    idx = np.random.permutation(n)
+    n_train = int(0.8 * n)
+    n_valid = int(0.1 * n)
+    train_idx = idx[:n_train]
+    valid_idx = idx[n_train:n_train + n_valid]
+    test_idx = idx[n_train + n_valid:]
 
-train_dataset = dataset[train_idx]
-valid_dataset = dataset[valid_idx]
-test_dataset = dataset[test_idx]
+    train_dataset = dataset[train_idx]
+    valid_dataset = dataset[valid_idx]
+    test_dataset = dataset[test_idx]
 
-# 计算 4 个 target 的均值和标准差（训练集）
-y_full = dataset._data.y  # [130791, 19]
-y_train = y_full[train_idx][:, [0, 1, 2, 3]]
-y_mean = y_train.mean(dim=0)  # [4]
-y_std = y_train.std(dim=0) + 1e-8
+    y_full = dataset._data.y
+    y_train = y_full[train_idx][:, [0, 1, 2, 3]]
+    y_mean = y_train.mean(dim=0)
+    y_std = y_train.std(dim=0) + 1e-8
 
-# print(f'y_mean: {y_mean}')
-# print(f'y_std:  {y_std}')
-# print(dataset[0].pos)
-# print(dataset[0])
-
-'''划分batch'''
-trainloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-validloader = DataLoader(valid_dataset, batch_size=32, shuffle=False)
-testloader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+    trainloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    validloader = DataLoader(valid_dataset, batch_size=32, shuffle=False)
+    testloader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
 
 class ShiftedSoftplus(nn.Module):
@@ -198,23 +192,28 @@ class Schnet_monomer(nn.Module):
         self.lumo=OutputBlock3(hidden_dim)
         self.mu=OutputBlock4(hidden_dim)
 
-    def forward(self, z, pos, edge_index, batch=None):
+    def forward(self, z, pos, edge_index, batch=None, return_v=False):
         h = self.atom_embed(z)
         for conv in self.convs:
             h = conv(h, pos, edge_index)
+        v = global_mean_pool(h, batch)  # [batch, hidden_dim] V_monomer
         alpha = self.alpha(h, batch).unsqueeze(-1)
         homo = self.homo(h, batch).unsqueeze(-1)
         lumo = self.lumo(h, batch).unsqueeze(-1)
         mu = self.mu(h, batch).unsqueeze(-1)
-        return torch.cat([mu, alpha, homo, lumo], dim=-1)
+        out = torch.cat([mu, alpha, homo, lumo], dim=-1)
+        if return_v:
+            return out, v
+        return out
 
 
 '''训练'''
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'Using device: {device}')
+if __name__ == '__main__':
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device: {device}')
 
-model = Schnet_monomer().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    model = Schnet_monomer().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 
 def train_epoch(loader):

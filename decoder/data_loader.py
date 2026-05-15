@@ -41,6 +41,19 @@ def one_hot(x, num_classes):
     return torch.eye(num_classes)[x]
 
 
+def get_3d_structure(mol):
+    """用 RDKit 生成 3D 构象，返回原子序数 z 和坐标 pos"""
+    mol = Chem.AddHs(mol)
+    try:
+        Chem.EmbedMolecule(mol, randomSeed=42)
+    except:
+        Chem.EmbedMolecule(mol, useRandomCoords=True, randomSeed=42)
+    conf = mol.GetConformer()
+    z = torch.tensor([atom.GetAtomicNum() for atom in mol.GetAtoms()], dtype=torch.long)
+    pos = torch.tensor(conf.GetPositions(), dtype=torch.float)
+    return z, pos
+
+
 def qm9_style_features(mol):
     """提取与 QM9 相同的 11 维原子特征 + 4 维边特征"""
     type_idx, aromatic, sp, sp2, sp3, num_hs = [], [], [], [], [], []
@@ -112,13 +125,18 @@ class PI1070(Dataset):
         row = self.df.iloc[idx]
         mol = mol_from_polymer_smiles(row['smiles'])
 
-        # QM9 风格特征（与预训练 GNN 一致）
+        # QM9 风格特征（GAT 编码器用）
         monomer_graph = qm9_style_features(mol)
+
+        # 3D 结构（SchNet 编码器用）
+        z, pos = get_3d_structure(mol)
 
         data = Data(
             x=monomer_graph.x,
             edge_index=monomer_graph.edge_index,
             edge_attr=monomer_graph.edge_attr,
+            z=z,
+            pos=pos,
             qm=self.qm[idx].unsqueeze(0),
             chain=self.chain[idx].unsqueeze(0),
             order=self.order[idx].unsqueeze(0),
