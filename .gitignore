@@ -1,0 +1,22 @@
+# Data
+data/PI1070.csv
+data/QM9/
+data/__pycache__/
+
+# Models
+base_model_molecule_encoder/best_model.pt
+decoder/best_slimnet.pt
+
+# Python
+__pycache__/
+*.pyc
+.idea/
+
+# Figures
+figures/
+
+# IDE
+.idea/
+*.DS_Store
+*.pdf
+main.py
