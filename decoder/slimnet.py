@@ -54,7 +54,7 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer):
-        v_polymer = torch.cat([v_monomer, x.chain, x.order], dim=-1)
+        v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
         beta = F.softplus(self.linear2(v_polymer))
