@@ -53,6 +53,7 @@ print(f'y_std:  {y_std}')
 class SlimNet(nn.Module):
     def __init__(self, v_dim=128, out_channels=3):
         super().__init__()
+        self.v_norm = nn.LayerNorm(v_dim)
         self.linear1 = nn.Linear(v_dim, out_channels)           # α: V_monomer → 3
         self.linear2 = nn.Linear(v_dim + 3, out_channels)       # β: V_monomer + chain
         self.linear3 = nn.Linear(v_dim + 3, out_channels)       # γ: V_monomer + chain
@@ -63,8 +64,7 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer):
-        v_monomer = torch.nan_to_num(v_monomer)
-        v_monomer = (v_monomer - v_monomer.mean(dim=0, keepdim=True)) / (v_monomer.std(dim=0, keepdim=True) + 1e-8)
+        v_monomer = self.v_norm(torch.nan_to_num(v_monomer))
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
