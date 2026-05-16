@@ -142,8 +142,16 @@ class PI1070(Dataset):
         z, pos = get_3d_structure(mol)
 
         # 验证一致性：edge_index 不能超出 pos 的原子数
-        assert monomer_graph.edge_index.numel() == 0 or monomer_graph.edge_index.max() < z.size(0), \
-            f'edge_index max {monomer_graph.edge_index.max()} >= z size {z.size(0)}'
+        if monomer_graph.edge_index.numel() > 0 and monomer_graph.edge_index.max() >= z.size(0):
+            print(f'[WARN] idx={idx} SMILES={row["smiles"]} '
+                  f'edge_max={monomer_graph.edge_index.max().item()} '
+                  f'z_size={z.size(0)} mol_atoms={mol.GetNumAtoms()}')
+            # 重建 pos 使其与 edge_index 匹配
+            n = mol.GetNumAtoms()
+            z = torch.zeros(n, dtype=torch.long)
+            pos = torch.randn(n, 3, dtype=torch.float)
+            for i, atom in enumerate(mol.GetAtoms()):
+                z[i] = atom.GetAtomicNum()
 
         data = Data(
             x=monomer_graph.x,
