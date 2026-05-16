@@ -93,8 +93,15 @@ model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
 
 optimizer = torch.optim.Adam([
-    {'params': model.parameters(), 'lr': 0.001},
-    {'params': encoder.parameters(), 'lr': 1e-5},
+    {'params': model.parameters(), 'lr': 0.001},                                     # SLIMNet
+    {'params': encoder.atom_embed.parameters(), 'lr': 1e-6},                         # 嵌入层
+    {'params': encoder.convs[:2].parameters(), 'lr': 1e-6},                          # 底层卷积
+    {'params': encoder.convs[2:4].parameters(), 'lr': 5e-6},                         # 中层卷积
+    {'params': encoder.convs[4:].parameters(), 'lr': 1e-5},                          # 顶层卷积
+    {'params': encoder.alpha.parameters(), 'lr': 1e-5},                              # 输出头
+    {'params': encoder.homo.parameters(), 'lr': 1e-5},
+    {'params': encoder.lumo.parameters(), 'lr': 1e-5},
+    {'params': encoder.mu.parameters(), 'lr': 1e-5},
 ], weight_decay=1e-4)
 
 

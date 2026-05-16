@@ -41,7 +41,16 @@ print(f'Loading from: {_pt}')
 encoder.load_state_dict(torch.load(_pt, map_location='cpu'))
 encoder.to(DEVICE)
 
-optimizer = torch.optim.Adam(encoder.parameters(), lr=1e-5)
+optimizer = torch.optim.Adam([
+    {'params': encoder.atom_embed.parameters(), 'lr': 1e-6},
+    {'params': encoder.convs[:2].parameters(), 'lr': 1e-6},
+    {'params': encoder.convs[2:4].parameters(), 'lr': 5e-6},
+    {'params': encoder.convs[4:].parameters(), 'lr': 1e-5},
+    {'params': encoder.alpha.parameters(), 'lr': 1e-5},
+    {'params': encoder.homo.parameters(), 'lr': 1e-5},
+    {'params': encoder.lumo.parameters(), 'lr': 1e-5},
+    {'params': encoder.mu.parameters(), 'lr': 1e-5},
+], weight_decay=1e-4)
 best_val = float('inf')
 
 for epoch in range(1, 51):
