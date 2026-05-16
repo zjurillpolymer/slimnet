@@ -82,7 +82,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device: {device}')
 
 encoder = Schnet_monomer(hidden_dim=128, n_layers=6)
-_enc_path = os.path.join(ROOT, 'base_model_molecule_encoder/best_schnet.pt')
+_enc_path = os.path.join(ROOT, 'best_schnet_ft.pt')  # 优先用 fine-tune 版本
+if not os.path.exists(_enc_path):
+    _enc_path = os.path.join(ROOT, 'base_model_molecule_encoder/best_schnet.pt')
 if not os.path.exists(_enc_path):
     _enc_path = os.path.join(ROOT, 'best_schnet.pt')  # 扁平结构兜底
 print(f'Loading encoder from: {_enc_path}')
