@@ -9,6 +9,7 @@ import numpy as np
 from torch_geometric.loader import DataLoader
 import torch.nn.functional as F
 
+torch.manual_seed(42)
 
 '''准备数据'''
 dataset = PI1070('/Users/arcadio/Slimnet/data/PI1070.csv')
@@ -58,7 +59,7 @@ class SlimNet(nn.Module):
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
         beta = F.softplus(self.linear2(v_polymer))
-        gamma = F.softplus(self.linear3(v_polymer))
+        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=5)
 
         attr_disordered = alpha * (beta ** gamma)
         attr_ordered = self.mlp(x.order)
