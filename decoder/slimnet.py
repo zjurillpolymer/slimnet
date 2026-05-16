@@ -62,8 +62,6 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer):
-        # 标准化 v_monomer（SchNet 输出值域不稳定）
-        v_monomer = (v_monomer - v_monomer.mean()) / (v_monomer.std() + 1e-8)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
@@ -90,17 +88,19 @@ encoder.load_state_dict(torch.load(_enc_path, map_location=device))
 model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
-encoder.eval()
+optimizer = torch.optim.Adam([
+    {'params': model.parameters(), 'lr': 0.001},
+    {'params': encoder.parameters(), 'lr': 1e-5},
+], weight_decay=1e-4)
 
 
 def train_epoch(loader):
     model.train()
+    encoder.train()
     total_loss = 0
     for batch in loader:
         batch = batch.to(device)
-        with torch.no_grad():
-            _, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
+        _, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
         optimizer.zero_grad()
         output = model(batch, v_monomer)
         y = batch.y
@@ -116,6 +116,7 @@ def train_epoch(loader):
 @torch.no_grad()
 def valid_epoch(loader):
     model.eval()
+    encoder.eval()
     total_loss = 0
     all_preds, all_targets = [], []
     for batch in loader:
