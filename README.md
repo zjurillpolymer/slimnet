@@ -62,6 +62,7 @@ decoder/
 
 - SchNet without layer normalization can produce NaN on some GPUs (especially vGPU). If you encounter NaN, use `slimnet_v1.py` which includes `nan_to_num` and value clamping.
 - Stage 2 monomer fine-tune (`finetune_encoder.py`) did not improve downstream SLIMNet performance in our experiments. End-to-end fine-tuning is recommended.
+- Adding monomer property prediction as an auxiliary multi-task loss (monomer + polymer) caused **negative transfer** — the small encoder (~500K params) lacked capacity to jointly optimize both tasks, and the larger monomer loss dominated the gradient. With only 1077 polymer samples, focusing on a single task (polymer property prediction) significantly outperformed multi-task learning.
 
 ## Data
 
