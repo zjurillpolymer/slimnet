@@ -92,12 +92,25 @@ optimizer = torch.optim.Adam([
 ], weight_decay=1e-4)
 
 
+debugged = False
+
 def train_epoch(loader):
+    global debugged
     model.train()
     encoder.train()
     total_loss = 0
     for batch in loader:
         batch = batch.to(device)
+        # 调试：第一个 batch 检查 encoder
+        if not debugged:
+            encoder.eval()
+            with torch.no_grad():
+                ev, _ = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
+            if torch.isnan(ev).any():
+                print(f'[FATAL] encoder eval also NaN! z max={batch.z.max().item()}')
+            encoder.train()
+            debugged = True
+
         monomer_out, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
         optimizer.zero_grad()
         output = model(batch, v_monomer)
