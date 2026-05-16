@@ -103,42 +103,20 @@ encoder.to(device)
 
 optimizer = torch.optim.Adam([
     {'params': model.parameters(), 'lr': 0.001},
-    {'params': encoder.parameters(), 'lr': 1e-5},
 ], weight_decay=1e-4)
+encoder.eval()  # 冻结 encoder，避免 NaN
 
-
-debugged = False
 
 def train_epoch(loader):
-    global debugged
     model.train()
-    encoder.train()
     total_loss = 0
     for batch in loader:
         batch = batch.to(device)
-        # 调试：第一个 batch 检查 encoder
-        if not debugged:
-            encoder.eval()
-            with torch.no_grad():
-                ev, _ = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
-            if torch.isnan(ev).any():
-                print(f'[FATAL] encoder eval also NaN! z max={batch.z.max().item()}')
-            encoder.train()
-            debugged = True
-
-        monomer_out, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
+        with torch.no_grad():  # encoder 不参与训练
+            monomer_out, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
         optimizer.zero_grad()
         output = model(batch, v_monomer)
         y = batch.y
-
-        # 调试：定位 NaN
-        if torch.isnan(v_monomer).any():
-            print(f'[DEBUG] v_monomer has NaN!')
-        if torch.isnan(output).any():
-            print(f'[DEBUG] SLIMNet output has NaN!')
-        if torch.isnan(monomer_out).any():
-            print(f'[DEBUG] monomer_out has NaN!')
-
         loss_polymer = F.mse_loss(output, (y - y_mean.to(device)) / y_std.to(device))
         loss_monomer = F.mse_loss(monomer_out, (batch.qm - qm_mean.to(device)) / qm_std.to(device))
         loss = loss_polymer + 0.1 * loss_monomer
@@ -151,7 +129,6 @@ def train_epoch(loader):
 @torch.no_grad()
 def valid_epoch(loader):
     model.eval()
-    encoder.eval()
     total_loss = 0
     all_preds, all_targets = [], []
     for batch in loader:
