@@ -44,10 +44,11 @@ class SlimNet(nn.Module):
         self.mlp = nn.Sequential(nn.Linear(1, 64), nn.ReLU(), nn.Linear(64, out_channels))
 
     def forward(self, x, v_monomer):
+        v_monomer = (v_monomer - v_monomer.mean(dim=0, keepdim=True)) / (v_monomer.std(dim=0, keepdim=True) + 1e-8)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, 0.1, self.training)
         a = torch.sigmoid(self.linear1(v_monomer))
-        b = F.softplus(self.linear2(v_polymer)) + 1e-6
+        b = F.softplus(self.linear2(v_polymer))
         g = F.softplus(self.linear3(v_polymer)).clamp(max=5)
         return a * torch.clamp(b ** g, max=1e6) + self.mlp(x.order)
 

@@ -62,10 +62,12 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer):
+        # 标准化 v_monomer（SchNet 输出值域不稳定）
+        v_monomer = (v_monomer - v_monomer.mean(dim=0, keepdim=True)) / (v_monomer.std(dim=0, keepdim=True) + 1e-8)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
-        beta = F.softplus(self.linear2(v_polymer)) + 1e-6
+        beta = F.softplus(self.linear2(v_polymer))
         gamma = F.softplus(self.linear3(v_polymer)).clamp(max=5)
 
         attr_disordered = alpha * torch.clamp(beta ** gamma, max=1e6)
