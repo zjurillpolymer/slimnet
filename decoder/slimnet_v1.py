@@ -53,7 +53,6 @@ print(f'y_std:  {y_std}')
 class SlimNet(nn.Module):
     def __init__(self, v_dim=128, out_channels=3):
         super().__init__()
-        self.v_norm = nn.LayerNorm(v_dim)
         self.linear1 = nn.Linear(v_dim, out_channels)           # α: V_monomer → 3
         self.linear2 = nn.Linear(v_dim + 3, out_channels)       # β: V_monomer + chain
         self.linear3 = nn.Linear(v_dim + 3, out_channels)       # γ: V_monomer + chain
@@ -64,14 +63,14 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer):
-        v_monomer = self.v_norm(torch.nan_to_num(v_monomer))
+        v_monomer = torch.nan_to_num(v_monomer)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
         beta = F.softplus(self.linear2(v_polymer)).clamp(max=10)
         gamma = F.softplus(self.linear3(v_polymer)).clamp(max=3)
 
-        attr_disordered = alpha * (beta ** gamma)
+        attr_disordered = alpha * torch.clamp(beta ** gamma, max=1e3)
         attr_ordered = self.mlp(x.order)
         return torch.nan_to_num(attr_disordered + attr_ordered)
 
@@ -90,8 +89,8 @@ model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
 
 optimizer = torch.optim.Adam([
-    {'params': model.parameters(), 'lr': 0.001},
-    {'params': encoder.parameters(), 'lr': 1e-5},
+    {'params': model.parameters(), 'lr': 5e-4},
+    {'params': encoder.parameters(), 'lr': 5e-6},
 ], weight_decay=1e-4)
 
 
