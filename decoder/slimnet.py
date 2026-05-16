@@ -10,14 +10,22 @@ from torch_geometric.loader import DataLoader
 import torch.nn.functional as F
 import os
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# 将 ROOT 传递给 plot_results
+# 自动检测项目根目录（兼容扁平结构和子目录结构）
+_script_dir = os.path.dirname(os.path.abspath(__file__))      # slimnet.py 所在目录
+if os.path.isdir(os.path.join(_script_dir, 'base_model_molecule_encoder')):
+    ROOT = _script_dir                                        # 扁平结构: /root/
+elif os.path.isdir(os.path.join(os.path.dirname(_script_dir), 'base_model_molecule_encoder')):
+    ROOT = os.path.dirname(_script_dir)                        # 子目录结构: .../Slimnet/
+else:
+    ROOT = _script_dir  # fallback
 os.environ['SLIMNET_ROOT'] = ROOT
 torch.manual_seed(42)
 
 '''准备数据'''
-dataset = PI1070(os.path.join(ROOT, 'data/PI1070.csv'))
+_csv_path = os.path.join(ROOT, 'data/PI1070.csv')
+if not os.path.exists(_csv_path):
+    _csv_path = os.path.join(ROOT, 'PI1070.csv')  # 扁平结构兜底
+dataset = PI1070(_csv_path)
 np.random.seed(42)
 n=len(dataset)
 idx = np.random.permutation(n)
@@ -85,9 +93,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device: {device}')
 
 encoder = Schnet_monomer(hidden_dim=128, n_layers=6)
-encoder.load_state_dict(torch.load(
-    os.path.join(ROOT, 'base_model_molecule_encoder/best_schnet.pt'),
-    map_location=device))
+_enc_path = os.path.join(ROOT, 'base_model_molecule_encoder/best_schnet.pt')
+if not os.path.exists(_enc_path):
+    _enc_path = os.path.join(ROOT, 'best_schnet.pt')  # 扁平结构兜底
+print(f'Loading encoder from: {_enc_path}')
+encoder.load_state_dict(torch.load(_enc_path, map_location=device))
 model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
 

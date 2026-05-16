@@ -29,7 +29,8 @@ PALETTE = {
 
 TARGET_NAMES = ['Thermal diffusivity', 'Static dielectric const', 'Linear expansion']
 
-ROOT = os.environ.get('SLIMNET_ROOT', os.path.dirname(os.path.abspath(__file__)))
+_fallback = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.environ.get('SLIMNET_ROOT', _fallback)
 OUT_DIR = os.path.join(ROOT, 'figures')
 
 
