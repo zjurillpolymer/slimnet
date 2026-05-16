@@ -4,7 +4,6 @@ import torch
 import numpy as np
 from rdkit import Chem, RDLogger
 RDLogger.logger().setLevel(RDLogger.ERROR)
-from rdkit.Chem import AllChem
 from torch_geometric.data import Dataset, Data
 from torch_geometric.nn import global_mean_pool
 
@@ -46,6 +45,7 @@ def one_hot(x, num_classes):
 def get_3d_structure(mol):
     """用 RDKit 生成 3D 构象，返回原子序数 z 和坐标 pos
     注意：与 qm9_style_features 共用同一个 mol，不加 H 保持原子数一致"""
+    from rdkit.Chem import AllChem
     mol_copy = Chem.RWMol(mol)  # 复制以免修改原 mol
     try:
         AllChem.EmbedMolecule(mol_copy, randomSeed=42)
