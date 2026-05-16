@@ -82,36 +82,25 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device: {device}')
 
 encoder = Schnet_monomer(hidden_dim=128, n_layers=6)
-_enc_path = os.path.join(ROOT, 'best_schnet_ft.pt')  # 优先用 fine-tune 版本
+_enc_path = os.path.join(ROOT, 'base_model_molecule_encoder/best_schnet.pt')
 if not os.path.exists(_enc_path):
-    _enc_path = os.path.join(ROOT, 'base_model_molecule_encoder/best_schnet.pt')
-if not os.path.exists(_enc_path):
-    _enc_path = os.path.join(ROOT, 'best_schnet.pt')  # 扁平结构兜底
+    _enc_path = os.path.join(ROOT, 'best_schnet.pt')
 print(f'Loading encoder from: {_enc_path}')
 encoder.load_state_dict(torch.load(_enc_path, map_location=device))
 model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
 
-optimizer = torch.optim.Adam([
-    {'params': model.parameters(), 'lr': 0.001},                                     # SLIMNet
-    {'params': encoder.atom_embed.parameters(), 'lr': 1e-6},                         # 嵌入层
-    {'params': encoder.convs[:2].parameters(), 'lr': 1e-6},                          # 底层卷积
-    {'params': encoder.convs[2:4].parameters(), 'lr': 5e-6},                         # 中层卷积
-    {'params': encoder.convs[4:].parameters(), 'lr': 1e-5},                          # 顶层卷积
-    {'params': encoder.alpha.parameters(), 'lr': 1e-5},                              # 输出头
-    {'params': encoder.homo.parameters(), 'lr': 1e-5},
-    {'params': encoder.lumo.parameters(), 'lr': 1e-5},
-    {'params': encoder.mu.parameters(), 'lr': 1e-5},
-], weight_decay=1e-4)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
+encoder.eval()
 
 
 def train_epoch(loader):
     model.train()
-    encoder.train()
     total_loss = 0
     for batch in loader:
         batch = batch.to(device)
-        _, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
+        with torch.no_grad():
+            _, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
         optimizer.zero_grad()
         output = model(batch, v_monomer)
         y = batch.y
@@ -127,7 +116,6 @@ def train_epoch(loader):
 @torch.no_grad()
 def valid_epoch(loader):
     model.eval()
-    encoder.eval()
     total_loss = 0
     all_preds, all_targets = [], []
     for batch in loader:
