@@ -107,13 +107,21 @@ def train_epoch(loader):
     total_loss = 0
     for batch in loader:
         batch = batch.to(device)
-        with torch.no_grad():  # encoder 不参与训练
+        with torch.no_grad():
             monomer_out, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
         optimizer.zero_grad()
         output = model(batch, v_monomer)
         y = batch.y
         loss_polymer = F.mse_loss(output, (y - y_mean.to(device)) / y_std.to(device))
-        loss_monomer = F.mse_loss(monomer_out, (batch.qm - qm_mean.to(device)) / qm_std.to(device))
+
+        qm_norm = (batch.qm - qm_mean.to(device)) / qm_std.to(device)
+        loss_monomer = F.mse_loss(monomer_out, qm_norm)
+
+        if not train_epoch.__dict__.get('_debugged'):
+            train_epoch._debugged = True
+            print(f'  monomer_out: [{monomer_out.min():.2f}, {monomer_out.max():.2f}]  '
+                  f'qm_norm: [{qm_norm.min():.2f}, {qm_norm.max():.2f}]  '
+                  f'poly={loss_polymer.item():.4f}  mono={loss_monomer.item():.4f}')
         loss = loss_polymer + 0.1 * loss_monomer
         loss.backward()
         optimizer.step()
