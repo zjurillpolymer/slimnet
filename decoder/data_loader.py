@@ -42,6 +42,10 @@ def one_hot(x, num_classes):
     return torch.eye(num_classes)[x]
 
 
+# SchNet 支持的原子序数（与 QM9 一致），超出部分映射到 0
+SCHNET_MAX_Z = 10
+SCHNET_OOV_Z = 0  # 未知原子映射到 H(1) 的位置
+
 def get_3d_structure(mol):
     """用 RDKit 生成 3D 构象，返回原子序数 z 和坐标 pos"""
     from rdkit.Chem import AllChem
@@ -52,14 +56,15 @@ def get_3d_structure(mol):
         succeeded = AllChem.EmbedMolecule(mol_copy, useRandomCoords=True, randomSeed=42)
 
     if succeeded != 0 or mol_copy.GetNumConformers() == 0:
-        # 完全失败时随机坐标
         n = mol_copy.GetNumAtoms()
-        z = torch.tensor([atom.GetAtomicNum() for atom in mol_copy.GetAtoms()], dtype=torch.long)
+        z = torch.tensor([a.GetAtomicNum() if a.GetAtomicNum() <= SCHNET_MAX_Z else SCHNET_OOV_Z
+                          for a in mol_copy.GetAtoms()], dtype=torch.long)
         pos = torch.randn(n, 3, dtype=torch.float)
         return z, pos
 
     conf = mol_copy.GetConformer()
-    z = torch.tensor([atom.GetAtomicNum() for atom in mol_copy.GetAtoms()], dtype=torch.long)
+    z = torch.tensor([a.GetAtomicNum() if a.GetAtomicNum() <= SCHNET_MAX_Z else SCHNET_OOV_Z
+                      for a in mol_copy.GetAtoms()], dtype=torch.long)
     pos = torch.tensor(conf.GetPositions(), dtype=torch.float)
     return z, pos
 
@@ -143,15 +148,10 @@ class PI1070(Dataset):
 
         # 验证一致性：edge_index 不能超出 pos 的原子数
         if monomer_graph.edge_index.numel() > 0 and monomer_graph.edge_index.max() >= z.size(0):
-            print(f'[WARN] idx={idx} SMILES={row["smiles"]} '
-                  f'edge_max={monomer_graph.edge_index.max().item()} '
-                  f'z_size={z.size(0)} mol_atoms={mol.GetNumAtoms()}')
-            # 重建 pos 使其与 edge_index 匹配
             n = mol.GetNumAtoms()
-            z = torch.zeros(n, dtype=torch.long)
+            z = torch.tensor([a.GetAtomicNum() if a.GetAtomicNum() <= SCHNET_MAX_Z else SCHNET_OOV_Z
+                              for a in mol.GetAtoms()], dtype=torch.long)
             pos = torch.randn(n, 3, dtype=torch.float)
-            for i, atom in enumerate(mol.GetAtoms()):
-                z[i] = atom.GetAtomicNum()
 
         data = Data(
             x=monomer_graph.x,
