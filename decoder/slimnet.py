@@ -33,6 +33,13 @@ y_std = y_train.std(dim=0) + 1e-8
 print(f'y_mean: {y_mean}')
 print(f'y_std:  {y_std}')
 
+# monomer 属性标准化
+qm_train = torch.cat([batch.qm for batch in trainloader])
+qm_mean = qm_train.mean(dim=0)
+qm_std = qm_train.std(dim=0) + 1e-8
+print(f'qm_mean: {qm_mean}')
+print(f'qm_std:  {qm_std}')
+
 
 class SlimNet(nn.Module):
     def __init__(self, v_dim=128, out_channels=3):
@@ -83,11 +90,13 @@ def train_epoch(loader):
     total_loss = 0
     for batch in loader:
         batch = batch.to(device)
-        out, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
+        monomer_out, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
         optimizer.zero_grad()
         output = model(batch, v_monomer)
         y = batch.y
-        loss = F.mse_loss(output, (y - y_mean.to(device)) / y_std.to(device))
+        loss_polymer = F.mse_loss(output, (y - y_mean.to(device)) / y_std.to(device))
+        loss_monomer = F.mse_loss(monomer_out, (batch.qm - qm_mean.to(device)) / qm_std.to(device))
+        loss = loss_polymer + 0.1 * loss_monomer
         loss.backward()
         optimizer.step()
         total_loss += loss.item() * batch.num_graphs
