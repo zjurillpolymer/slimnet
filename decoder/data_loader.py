@@ -2,7 +2,8 @@
 import pandas as pd
 import torch
 import numpy as np
-from rdkit import Chem
+from rdkit import Chem, RDLogger
+RDLogger.logger().setLevel(RDLogger.ERROR)
 from rdkit.Chem import AllChem
 from torch_geometric.data import Dataset, Data
 from torch_geometric.nn import global_mean_pool
