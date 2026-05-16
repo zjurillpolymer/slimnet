@@ -63,17 +63,17 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer):
+        v_monomer = torch.nan_to_num(v_monomer)
+        v_monomer = (v_monomer - v_monomer.mean(dim=0, keepdim=True)) / (v_monomer.std(dim=0, keepdim=True) + 1e-8)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
-        beta = F.softplus(self.linear2(v_polymer)) + 1e-8
-        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=5)
+        beta = F.softplus(self.linear2(v_polymer)).clamp(max=10)
+        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=3)
 
         attr_disordered = alpha * (beta ** gamma)
         attr_ordered = self.mlp(x.order)
-
-        attr_final = attr_disordered + attr_ordered
-        return attr_final
+        return torch.nan_to_num(attr_disordered + attr_ordered)
 
 
 '''加载权重，训练模型'''
