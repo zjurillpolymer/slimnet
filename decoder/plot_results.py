@@ -29,7 +29,8 @@ PALETTE = {
 
 TARGET_NAMES = ['Thermal diffusivity', 'Static dielectric const', 'Linear expansion']
 
-OUT_DIR = '/Users/arcadio/Slimnet/figures'
+ROOT = os.environ.get('SLIMNET_ROOT', os.path.dirname(os.path.abspath(__file__)))
+OUT_DIR = os.path.join(ROOT, 'figures')
 
 
 def plot_training_curve(train_losses, val_losses, save=True):

@@ -259,13 +259,13 @@ def main():
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), '/Users/arcadio/Slimnet/base_model_molecule_encoder/best_schnet.pt')
+            torch.save(model.state_dict(), './best_schnet.pt')
 
         if epoch % 10 == 0 or epoch == 1:
             print(f'Epoch {epoch:3d}/{epochs}  '
                   f'train_loss={train_loss:.4f}  val_loss={val_loss:.4f}')
 
-    model.load_state_dict(torch.load('/Users/arcadio/Slimnet/base_model_molecule_encoder/best_schnet.pt'))
+    model.load_state_dict(torch.load('./best_schnet.pt'))
     test_loss, preds, targets = valid_epoch(testloader)
     print(f'\nTest  loss={test_loss:.4f}')
 

@@ -8,11 +8,16 @@ from Schnet_model_monomer import Schnet_monomer
 import numpy as np
 from torch_geometric.loader import DataLoader
 import torch.nn.functional as F
+import os
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 将 ROOT 传递给 plot_results
+os.environ['SLIMNET_ROOT'] = ROOT
 torch.manual_seed(42)
 
 '''准备数据'''
-dataset = PI1070('/Users/arcadio/Slimnet/data/PI1070.csv')
+dataset = PI1070(os.path.join(ROOT, 'data/PI1070.csv'))
 np.random.seed(42)
 n=len(dataset)
 idx = np.random.permutation(n)
@@ -81,7 +86,7 @@ print(f'Using device: {device}')
 
 encoder = Schnet_monomer(hidden_dim=128, n_layers=6)
 encoder.load_state_dict(torch.load(
-    '/Users/arcadio/Slimnet/base_model_molecule_encoder/best_schnet.pt',
+    os.path.join(ROOT, 'base_model_molecule_encoder/best_schnet.pt'),
     map_location=device))
 model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
@@ -164,14 +169,14 @@ def main():
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), '/Users/arcadio/Slimnet/decoder/best_slimnet.pt')
+            torch.save(model.state_dict(), os.path.join(ROOT, 'decoder/best_slimnet.pt'))
 
         if epoch % 10 == 0 or epoch == 1:
             print(f'Epoch {epoch:3d}/{epochs}  '
                   f'train_loss={train_loss:.4f}  val_loss={val_loss:.4f}')
 
     # 测试集
-    model.load_state_dict(torch.load('/Users/arcadio/Slimnet/decoder/best_slimnet.pt'))
+    model.load_state_dict(torch.load(os.path.join(ROOT, 'decoder/best_slimnet.pt')))
     test_loss, preds, targets = valid_epoch(testloader)
     print(f'\nTest  loss={test_loss:.4f}')
 
