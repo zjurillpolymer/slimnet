@@ -141,6 +141,10 @@ class PI1070(Dataset):
         # 3D 结构（SchNet 编码器用）
         z, pos = get_3d_structure(mol)
 
+        # 验证一致性：edge_index 不能超出 pos 的原子数
+        assert monomer_graph.edge_index.numel() == 0 or monomer_graph.edge_index.max() < z.size(0), \
+            f'edge_index max {monomer_graph.edge_index.max()} >= z size {z.size(0)}'
+
         data = Data(
             x=monomer_graph.x,
             edge_index=monomer_graph.edge_index,
