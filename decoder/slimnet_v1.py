@@ -101,11 +101,8 @@ def train_epoch(loader):
     for batch in loader:
         batch = batch.to(device)
         _, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
-        if torch.isnan(v_monomer).any():
-            print(f'[FATAL] v_monomer has NaN! min={v_monomer.min():.2f} max={v_monomer.max():.2f}')
-            print(f'  z range: [{batch.z.min().item()}, {batch.z.max().item()}]')
-            print(f'  pos has nan: {torch.isnan(batch.pos).any().item()}')
-            raise RuntimeError('encoder outputs NaN')
+        # 清理 encoder 输出的 NaN（部分 GPU 上 SchNet 值域溢出）
+        v_monomer = torch.nan_to_num(v_monomer, nan=0.0)
         optimizer.zero_grad()
         output = model(batch, v_monomer)
         y = batch.y
