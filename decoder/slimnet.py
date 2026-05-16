@@ -92,17 +92,17 @@ encoder.to(device)
 
 optimizer = torch.optim.Adam([
     {'params': model.parameters(), 'lr': 0.001},
+    {'params': encoder.parameters(), 'lr': 1e-5},
 ], weight_decay=1e-4)
-encoder.eval()  # 冻结 encoder，避免 NaN
 
 
 def train_epoch(loader):
     model.train()
+    encoder.train()
     total_loss = 0
     for batch in loader:
         batch = batch.to(device)
-        with torch.no_grad():
-            _, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
+        _, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
         optimizer.zero_grad()
         output = model(batch, v_monomer)
         y = batch.y
@@ -118,6 +118,7 @@ def train_epoch(loader):
 @torch.no_grad()
 def valid_epoch(loader):
     model.eval()
+    encoder.eval()
     total_loss = 0
     all_preds, all_targets = [], []
     for batch in loader:
