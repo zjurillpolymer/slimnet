@@ -43,14 +43,21 @@ def one_hot(x, num_classes):
 
 
 def get_3d_structure(mol):
-    """用 RDKit 生成 3D 构象，返回原子序数 z 和坐标 pos
-    注意：与 qm9_style_features 共用同一个 mol，不加 H 保持原子数一致"""
+    """用 RDKit 生成 3D 构象，返回原子序数 z 和坐标 pos"""
     from rdkit.Chem import AllChem
-    mol_copy = Chem.RWMol(mol)  # 复制以免修改原 mol
-    try:
-        AllChem.EmbedMolecule(mol_copy, randomSeed=42)
-    except:
-        AllChem.EmbedMolecule(mol_copy, useRandomCoords=True, randomSeed=42)
+    mol_copy = Chem.RWMol(mol)
+
+    succeeded = AllChem.EmbedMolecule(mol_copy, randomSeed=42)
+    if succeeded != 0:
+        succeeded = AllChem.EmbedMolecule(mol_copy, useRandomCoords=True, randomSeed=42)
+
+    if succeeded != 0 or mol_copy.GetNumConformers() == 0:
+        # 完全失败时随机坐标
+        n = mol_copy.GetNumAtoms()
+        z = torch.tensor([atom.GetAtomicNum() for atom in mol_copy.GetAtoms()], dtype=torch.long)
+        pos = torch.randn(n, 3, dtype=torch.float)
+        return z, pos
+
     conf = mol_copy.GetConformer()
     z = torch.tensor([atom.GetAtomicNum() for atom in mol_copy.GetAtoms()], dtype=torch.long)
     pos = torch.tensor(conf.GetPositions(), dtype=torch.float)
