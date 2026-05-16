@@ -9,6 +9,19 @@ import os
 
 _SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# 临时 patch PyG 的 QM9 处理代码，跳过 RDKit 无法解析的分子
+try:
+    import torch_geometric.datasets.qm9 as _qm9_mod
+    with open(_qm9_mod.__file__, 'r') as f:
+        _c = f.read()
+    _old = 'if i in skip:\n                continue\n\n            N = mol.GetNumAtoms()'
+    _new = 'if i in skip:\n                continue\n            if mol is None:\n                continue\n\n            N = mol.GetNumAtoms()'
+    if _old in _c:
+        with open(_qm9_mod.__file__, 'w') as f:
+            f.write(_c.replace(_old, _new))
+        print('[Patch] QM9: skip None molecules')
+except: pass
+
 '''划分train/valid/test三个集合'''
 if __name__ == '__main__':
     dataset = QM9(root=os.path.join(_SCRIPT_DIR, 'data/QM9'))
