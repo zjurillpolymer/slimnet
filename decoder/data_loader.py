@@ -8,7 +8,7 @@ from torch_geometric.data import Dataset, Data
 from torch_geometric.nn import global_mean_pool
 
 # 特征列索引
-QM_COLS = ['qm_homo_monomer', 'qm_lumo_monomer', 'qm_dipole_monomer', 'qm_polarizability_monomer']
+QM_COLS = ['qm_dipole_monomer', 'qm_polarizability_monomer', 'qm_homo_monomer', 'qm_lumo_monomer']
 CHAIN_COLS = ['mol_weight_monomer', 'DP', 'density']
 ORDER_COLS = ['nematic_order_parameter']
 TARGET_COLS = ['thermal_diffusivity',
