@@ -61,7 +61,14 @@ class SlimNet(nn.Module):
         beta = F.softplus(self.linear2(v_polymer))
         gamma = F.softplus(self.linear3(v_polymer)).clamp(max=5)
 
-        attr_disordered = alpha * (beta ** gamma)
+        theta = beta ** gamma
+        if torch.isnan(theta).any():
+            print(f'[DEBUG] beta**gamma NaN! beta: min={beta.min():.4f} max={beta.max():.4f} '
+                  f'gamma: min={gamma.min():.4f} max={gamma.max():.4f}')
+        if torch.isnan(alpha).any():
+            print(f'[DEBUG] alpha NaN! v_monomer: min={v_monomer.min():.4f} max={v_monomer.max():.4f}')
+
+        attr_disordered = alpha * theta
         attr_ordered = self.mlp(x.order)
 
         attr_final = attr_disordered + attr_ordered
@@ -95,6 +102,15 @@ def train_epoch(loader):
         optimizer.zero_grad()
         output = model(batch, v_monomer)
         y = batch.y
+
+        # 调试：定位 NaN
+        if torch.isnan(v_monomer).any():
+            print(f'[DEBUG] v_monomer has NaN!')
+        if torch.isnan(output).any():
+            print(f'[DEBUG] SLIMNet output has NaN!')
+        if torch.isnan(monomer_out).any():
+            print(f'[DEBUG] monomer_out has NaN!')
+
         loss_polymer = F.mse_loss(output, (y - y_mean.to(device)) / y_std.to(device))
         loss_monomer = F.mse_loss(monomer_out, (batch.qm - qm_mean.to(device)) / qm_std.to(device))
         loss = loss_polymer + 0.1 * loss_monomer
