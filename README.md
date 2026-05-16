@@ -51,9 +51,17 @@ base_model_molecule_encoder/
 decoder/
 ├── data_loader.py               PI1070 polymer dataset loader
 ├── convert_molecule_graph.py    RDKit → PyG graph conversion
-├── slimnet.py                   SLIMNet training & evaluation
+├── slimnet.py                   SLIMNet + encoder fine-tune
+├── slimnet_baseline.py           SLIMNet with frozen encoder
+├── slimnet_v1.py                Stable version with numerical guards
+├── finetune_encoder.py          Stage 2: monomer fine-tune
 └── plot_results.py              Training curves & pred-vs-true plots
 ```
+
+## Notes
+
+- SchNet without layer normalization can produce NaN on some GPUs (especially vGPU). If you encounter NaN, use `slimnet_v1.py` which includes `nan_to_num` and value clamping.
+- Stage 2 monomer fine-tune (`finetune_encoder.py`) did not improve downstream SLIMNet performance in our experiments. End-to-end fine-tuning is recommended.
 
 ## Data
 
@@ -63,10 +71,13 @@ decoder/
 ## Usage
 
 ```bash
-# 1. Download QM9 and pre-train GNN
-python base_model_molecule_encoder/monomer_predict_GNN.py
+# 1. QM9 pre-train SchNet
+python base_model_molecule_encoder/Schnet_model_monomer.py
 
-# 2. Train SLIMNet on polymer data
+# 2. Train SLIMNet (frozen encoder baseline)
+python decoder/slimnet_baseline.py
+
+# 3. Train SLIMNet (end-to-end fine-tune, recommended)
 python decoder/slimnet.py
 ```
 

@@ -62,19 +62,16 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer):
-        # 标准化 v_monomer（SchNet 输出值域不稳定）
-        v_monomer = (v_monomer - v_monomer.mean(dim=0, keepdim=True)) / (v_monomer.std(dim=0, keepdim=True) + 1e-8)
+        v_monomer = torch.nan_to_num(v_monomer)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
-        beta = F.softplus(self.linear2(v_polymer))
-        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=5)
+        beta = F.softplus(self.linear2(v_polymer)).clamp(max=10)
+        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=3)
 
-        attr_disordered = alpha * torch.clamp(beta ** gamma, max=1e6)
+        attr_disordered = alpha * torch.clamp(beta ** gamma, max=1e3)
         attr_ordered = self.mlp(x.order)
-
-        attr_final = attr_disordered + attr_ordered
-        return attr_final
+        return torch.nan_to_num(attr_disordered + attr_ordered)
 
 
 '''加载权重，训练模型'''
@@ -91,8 +88,8 @@ model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
 
 optimizer = torch.optim.Adam([
-    {'params': model.parameters(), 'lr': 0.001},
-    {'params': encoder.parameters(), 'lr': 1e-5},
+    {'params': model.parameters(), 'lr': 5e-4},
+    {'params': encoder.parameters(), 'lr': 5e-6},
 ], weight_decay=1e-4)
 
 
