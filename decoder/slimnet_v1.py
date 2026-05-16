@@ -19,6 +19,7 @@ elif os.path.isdir(os.path.join(os.path.dirname(_script_dir), 'base_model_molecu
 else:
     ROOT = _script_dir  # fallback
 os.environ['SLIMNET_ROOT'] = ROOT
+torch.set_float32_matmul_precision('high')
 torch.manual_seed(42)
 
 '''准备数据'''
