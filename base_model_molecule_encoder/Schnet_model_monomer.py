@@ -5,11 +5,13 @@ from torch_geometric.datasets import QM9
 from torch_geometric.nn import global_mean_pool
 import numpy as np
 import torch.nn.functional as F
+import os
 
+_SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 '''划分train/valid/test三个集合'''
 if __name__ == '__main__':
-    dataset = QM9(root='../data/QM9')
+    dataset = QM9(root=os.path.join(_SCRIPT_DIR, 'data/QM9'))
     np.random.seed(42)
     n=len(dataset)
     idx = np.random.permutation(n)
@@ -259,13 +261,13 @@ def main():
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), './best_schnet.pt')
+            torch.save(model.state_dict(), os.path.join(_SCRIPT_DIR, 'base_model_molecule_encoder/best_schnet.pt'))
 
         if epoch % 10 == 0 or epoch == 1:
             print(f'Epoch {epoch:3d}/{epochs}  '
                   f'train_loss={train_loss:.4f}  val_loss={val_loss:.4f}')
 
-    model.load_state_dict(torch.load('./best_schnet.pt'))
+    model.load_state_dict(torch.load(os.path.join(_SCRIPT_DIR, 'base_model_molecule_encoder/best_schnet.pt')))
     test_loss, preds, targets = valid_epoch(testloader)
     print(f'\nTest  loss={test_loss:.4f}')
 
