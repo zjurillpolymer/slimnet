@@ -68,20 +68,15 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer):
+        # 标准化 v_monomer（SchNet 输出值域不稳定）
+        v_monomer = (v_monomer - v_monomer.mean()) / (v_monomer.std() + 1e-8)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
         beta = F.softplus(self.linear2(v_polymer))
         gamma = F.softplus(self.linear3(v_polymer)).clamp(max=5)
 
-        theta = beta ** gamma
-        if torch.isnan(theta).any():
-            print(f'[DEBUG] beta**gamma NaN! beta: min={beta.min():.4f} max={beta.max():.4f} '
-                  f'gamma: min={gamma.min():.4f} max={gamma.max():.4f}')
-        if torch.isnan(alpha).any():
-            print(f'[DEBUG] alpha NaN! v_monomer: min={v_monomer.min():.4f} max={v_monomer.max():.4f}')
-
-        attr_disordered = alpha * theta
+        attr_disordered = alpha * (beta ** gamma)
         attr_ordered = self.mlp(x.order)
 
         attr_final = attr_disordered + attr_ordered
