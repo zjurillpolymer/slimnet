@@ -53,26 +53,37 @@ print(f'y_std:  {y_std}')
 class SlimNet(nn.Module):
     """换位版：强无序相（放开 clamp）+ 弱有序相（线性层）"""
 
-    def __init__(self, v_dim=128, out_channels=3):
+        def __init__(self, v_dim=128, out_channels=3):
         super().__init__()
+        # α: V_monomer → 3
         self.linear1 = nn.Linear(v_dim, out_channels)
-        self.linear2 = nn.Linear(v_dim + 3, out_channels)
-        self.linear3 = nn.Linear(v_dim + 3, out_channels)
-        self.ordered_linear = nn.Linear(1, out_channels)
+        # β: V_monomer + chain → 64 → 3（加深）
+        self.beta_net = nn.Sequential(
+            nn.Linear(v_dim + 3, 64), nn.ReLU(),
+            nn.Linear(64, out_channels),
+        )
+        # γ: V_monomer + chain → 64 → 3（加深）
+        self.gamma_net = nn.Sequential(
+            nn.Linear(v_dim + 3, 64), nn.ReLU(),
+            nn.Linear(64, out_channels),
+        )
+        # 有序相保持不变（1 → 64 → 3）
+        self.mlp = nn.Sequential(
+            nn.Linear(1, 64), nn.ReLU(),
+            nn.Linear(64, out_channels),
+        )
 
     def forward(self, x, v_monomer, return_components=False):
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
 
         alpha = torch.sigmoid(self.linear1(v_monomer))
-        beta = F.softplus(self.linear2(v_polymer))  # 无 clamp
-        gamma = F.softplus(self.linear3(v_polymer))  # 无 clamp
+        beta = F.softplus(self.beta_net(v_polymer))  # 无 clamp
+        gamma = F.softplus(self.gamma_net(v_polymer))  # 无 clamp
 
         attr_disordered = alpha * (beta ** gamma)
-        attr_ordered = self.ordered_linear(x.order) * 0.1
-        out = attr_disordered + attr_ordered
-        if return_components == 'components':
-            return out, attr_ordered.detach(), attr_disordered.detach()
+        attr_ordered = self.mlp(x.order)
+        out = attr_disordered + attr_ordered, attr_ordered.detach(), attr_disordered.detach()
         if return_components == 'params':
             return out, alpha.detach(), beta.detach(), gamma.detach()
         return out
