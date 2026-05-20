@@ -63,8 +63,6 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer, return_components=False):
-        # 替换 FAN 为 0（少数 GPU 上 SchNet 值域溢出）
-        v_monomer = torch.nan_to_num(v_monomer, nan=0.0, posinf=50.0, neginf=-50.0)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
@@ -73,7 +71,7 @@ class SlimNet(nn.Module):
 
         attr_disordered = alpha * torch.clamp(beta ** gamma, max=100)
         attr_ordered = self.mlp(x.order)
-        out = torch.nan_to_num(attr_disordered + attr_ordered)
+        out = attr_disordered + attr_ordered
         if return_components == 'components':
             return out, attr_disordered.detach(), attr_ordered.detach()
         if return_components == 'params':
@@ -91,7 +89,6 @@ if not os.path.exists(_enc_path):
     _enc_path = os.path.join(ROOT, 'best_schnet.pt')
 print(f'Loading encoder from: {_enc_path}')
 encoder.load_state_dict(torch.load(_enc_path, map_location=device), strict=False)
-print('[Info] LayerNorm weights initialized from scratch (not in checkpoint)')
 model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
 
@@ -108,8 +105,6 @@ def train_epoch(loader):
     for batch in loader:
         batch = batch.to(device)
         _, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
-        # 清理 encoder 输出的 NaN（部分 GPU 上 SchNet 值域溢出）
-        v_monomer = torch.nan_to_num(v_monomer, nan=0.0)
         optimizer.zero_grad()
         output = model(batch, v_monomer)
         y = batch.y
