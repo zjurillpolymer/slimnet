@@ -51,26 +51,25 @@ print(f'y_std:  {y_std}')
 
 
 class SlimNet(nn.Module):
+    """换位版：强无序相（放开 clamp）+ 弱有序相（线性层）"""
+
     def __init__(self, v_dim=128, out_channels=3):
         super().__init__()
-        self.linear1 = nn.Linear(v_dim, out_channels)           # α: V_monomer → 3
-        self.linear2 = nn.Linear(v_dim + 3, out_channels)       # β: V_monomer + chain
-        self.linear3 = nn.Linear(v_dim + 3, out_channels)       # γ: V_monomer + chain
-        self.mlp = nn.Sequential(
-            nn.Linear(1, 64),
-            nn.ReLU(),
-            nn.Linear(64, out_channels)
-        )
+        self.linear1 = nn.Linear(v_dim, out_channels)
+        self.linear2 = nn.Linear(v_dim + 3, out_channels)
+        self.linear3 = nn.Linear(v_dim + 3, out_channels)
+        self.ordered_linear = nn.Linear(1, out_channels)
 
     def forward(self, x, v_monomer, return_components=False):
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
-        alpha = torch.sigmoid(self.linear1(v_monomer))
-        beta = F.softplus(self.linear2(v_polymer)).clamp(max=5)
-        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=2)
 
-        attr_disordered = alpha * torch.clamp(beta ** gamma, max=100)
-        attr_ordered = self.mlp(x.order)
+        alpha = torch.sigmoid(self.linear1(v_monomer))
+        beta = F.softplus(self.linear2(v_polymer))  # 无 clamp
+        gamma = F.softplus(self.linear3(v_polymer))  # 无 clamp
+
+        attr_disordered = alpha * (beta ** gamma)
+        attr_ordered = self.ordered_linear(x.order) * 0.1
         out = attr_disordered + attr_ordered
         if return_components == 'components':
             return out, attr_ordered.detach(), attr_disordered.detach()
