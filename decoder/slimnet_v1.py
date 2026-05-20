@@ -96,6 +96,7 @@ optimizer = torch.optim.Adam([
     {'params': model.parameters(), 'lr': 0.001},
     {'params': encoder.parameters(), 'lr': 1e-5},
 ], weight_decay=1e-4)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=300)
 
 
 def train_epoch(loader):
@@ -152,6 +153,7 @@ def main():
         val_loss, preds, targets, ratio = valid_epoch(validloader)
         train_hist.append(train_loss)
         val_hist.append(val_loss)
+        scheduler.step()
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
