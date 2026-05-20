@@ -73,7 +73,7 @@ class SlimNet(nn.Module):
         attr_ordered = self.mlp(x.order)
         out = attr_disordered + attr_ordered
         if return_components == 'components':
-            return out, attr_disordered.detach(), attr_ordered.detach()
+            return out, attr_ordered.detach(), attr_disordered.detach()
         if return_components == 'params':
             return out, alpha.detach(), beta.detach(), gamma.detach()
         return out
