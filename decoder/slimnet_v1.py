@@ -67,10 +67,10 @@ class SlimNet(nn.Module):
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
-        beta = F.softplus(self.linear2(v_polymer)).clamp(max=10)
-        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=3)
+        beta = F.softplus(self.linear2(v_polymer)).clamp(max=5)
+        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=2)
 
-        attr_disordered = alpha * torch.clamp(beta ** gamma, max=1e3)
+        attr_disordered = alpha * torch.clamp(beta ** gamma, max=100)
         attr_ordered = self.mlp(x.order)
         out = torch.nan_to_num(attr_disordered + attr_ordered)
         if return_components == 'components':
@@ -94,8 +94,8 @@ model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
 
 optimizer = torch.optim.Adam([
-    {'params': model.parameters(), 'lr': 5e-4},
-    {'params': encoder.parameters(), 'lr': 5e-6},
+    {'params': model.parameters(), 'lr': 0.001},
+    {'params': encoder.parameters(), 'lr': 1e-5},
 ], weight_decay=1e-4)
 
 
@@ -142,6 +142,7 @@ def valid_epoch(loader):
     ordered = torch.cat(all_ordered)
     disordered = torch.cat(all_disordered)
     ratio = (ordered.abs().mean() / (disordered.abs().mean() + 1e-8)).item()
+    if not (0 < ratio < 1e6): ratio = 0
     return total_loss / len(loader.dataset), torch.cat(all_preds), torch.cat(all_targets), ratio
 
 
