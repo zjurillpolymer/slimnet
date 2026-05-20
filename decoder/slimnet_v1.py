@@ -113,6 +113,8 @@ def train_epoch(loader):
 
         loss = loss_polymer
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+        torch.nn.utils.clip_grad_norm_(encoder.parameters(), max_norm=5.0)
         optimizer.step()
         total_loss += loss.item() * batch.num_graphs
     return total_loss / len(loader.dataset)
