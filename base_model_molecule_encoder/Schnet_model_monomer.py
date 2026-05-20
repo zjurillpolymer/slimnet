@@ -83,6 +83,7 @@ class SchNetConv(nn.Module):
             ShiftedSoftplus(),
             nn.Linear(hidden_dim, hidden_dim),
         )
+        self.norm = nn.LayerNorm(hidden_dim)
 
 
     def forward(self, h, x, edge_index, rbf):
@@ -103,7 +104,7 @@ class SchNetConv(nn.Module):
         aggr=aggr/deg.clamp(min=1).view(-1,1) #求平均
 
         h_new=self.update_net(h+aggr)#聚合周围原子+自己
-        return h_new
+        return self.norm(h_new)
 
 
 

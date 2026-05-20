@@ -63,7 +63,8 @@ class SlimNet(nn.Module):
         )
 
     def forward(self, x, v_monomer, return_components=False):
-        v_monomer = torch.nan_to_num(v_monomer)
+        # 替换 FAN 为 0（少数 GPU 上 SchNet 值域溢出）
+        v_monomer = torch.nan_to_num(v_monomer, nan=0.0, posinf=50.0, neginf=-50.0)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
