@@ -48,9 +48,9 @@ class SlimNet(nn.Module):
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, 0.1, self.training)
         a = torch.sigmoid(self.linear1(v_monomer))
-        b = F.softplus(self.linear2(v_polymer))
-        g = F.softplus(self.linear3(v_polymer)).clamp(max=5)
-        return a * torch.clamp(b ** g, max=1e6) + self.mlp(x.order)
+        b = F.softplus(self.linear2(v_polymer)).clamp(max=5)
+        g = F.softplus(self.linear3(v_polymer)).clamp(max=2)
+        return a * torch.clamp(b ** g, max=100) + self.mlp(x.order)
 
 
 # 模型

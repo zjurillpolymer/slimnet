@@ -66,10 +66,10 @@ class SlimNet(nn.Module):
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
         alpha = torch.sigmoid(self.linear1(v_monomer))
-        beta = F.softplus(self.linear2(v_polymer)).clamp(max=10)
-        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=3)
+        beta = F.softplus(self.linear2(v_polymer)).clamp(max=5)
+        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=2)
 
-        attr_disordered = alpha * torch.clamp(beta ** gamma, max=1e3)
+        attr_disordered = alpha * torch.clamp(beta ** gamma, max=100)
         attr_ordered = self.mlp(x.order)
         return torch.nan_to_num(attr_disordered + attr_ordered)
 
