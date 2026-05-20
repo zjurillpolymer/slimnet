@@ -90,7 +90,8 @@ _enc_path = os.path.join(ROOT, 'base_model_molecule_encoder/best_schnet.pt')
 if not os.path.exists(_enc_path):
     _enc_path = os.path.join(ROOT, 'best_schnet.pt')
 print(f'Loading encoder from: {_enc_path}')
-encoder.load_state_dict(torch.load(_enc_path, map_location=device))
+encoder.load_state_dict(torch.load(_enc_path, map_location=device), strict=False)
+print('[Info] LayerNorm weights initialized from scratch (not in checkpoint)')
 model = SlimNet(v_dim=128).to(device)
 encoder.to(device)
 
