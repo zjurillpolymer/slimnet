@@ -51,11 +51,14 @@ print(f'y_std:  {y_std}')
 
 
 class SlimNet(nn.Module):
+    """解耦版：每个任务独立的 α/β/γ"""
+    TASKS = ['thermal_diffusivity', 'dielectric_const', 'linear_expansion']
+
     def __init__(self, v_dim=128, out_channels=3):
         super().__init__()
-        self.linear1 = nn.Linear(v_dim, out_channels)           # α: V_monomer → 3
-        self.linear2 = nn.Linear(v_dim + 3, out_channels)       # β: V_monomer + chain
-        self.linear3 = nn.Linear(v_dim + 3, out_channels)       # γ: V_monomer + chain
+        self.alpha_linears = nn.ModuleList([nn.Linear(v_dim, 1) for _ in range(out_channels)])
+        self.beta_linears = nn.ModuleList([nn.Linear(v_dim + 3, 1) for _ in range(out_channels)])
+        self.gamma_linears = nn.ModuleList([nn.Linear(v_dim + 3, 1) for _ in range(out_channels)])
         self.mlp = nn.Sequential(
             nn.Linear(1, 64),
             nn.ReLU(),
@@ -65,9 +68,10 @@ class SlimNet(nn.Module):
     def forward(self, x, v_monomer, return_components=False):
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
-        alpha = torch.sigmoid(self.linear1(v_monomer))
-        beta = F.softplus(self.linear2(v_polymer)).clamp(max=5)
-        gamma = F.softplus(self.linear3(v_polymer)).clamp(max=2)
+
+        alpha = torch.cat([torch.sigmoid(lin(v_monomer)) for lin in self.alpha_linears], dim=-1)
+        beta = torch.cat([F.softplus(lin(v_polymer)).clamp(max=5) for lin in self.beta_linears], dim=-1)
+        gamma = torch.cat([F.softplus(lin(v_polymer)).clamp(max=2) for lin in self.gamma_linears], dim=-1)
 
         attr_disordered = alpha * torch.clamp(beta ** gamma, max=100)
         attr_ordered = self.mlp(x.order)
