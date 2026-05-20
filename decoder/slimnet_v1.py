@@ -73,8 +73,10 @@ class SlimNet(nn.Module):
         attr_disordered = alpha * torch.clamp(beta ** gamma, max=1e3)
         attr_ordered = self.mlp(x.order)
         out = torch.nan_to_num(attr_disordered + attr_ordered)
-        if return_components:
+        if return_components == 'components':
             return out, attr_disordered.detach(), attr_ordered.detach()
+        if return_components == 'params':
+            return out, alpha.detach(), beta.detach(), gamma.detach()
         return out
 
 
@@ -128,7 +130,7 @@ def valid_epoch(loader):
     for batch in loader:
         batch = batch.to(device)
         out, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
-        out, ordered, disordered = model(batch, v_monomer, return_components=True)
+        out, ordered, disordered = model(batch, v_monomer, return_components='components')
         y = batch.y
         loss = F.mse_loss(out, (y - y_mean.to(device)) / y_std.to(device))
         total_loss += loss.item() * batch.num_graphs
@@ -166,6 +168,22 @@ def main():
     model.load_state_dict(torch.load(os.path.join(ROOT, 'decoder/best_slimnet.pt')))
     test_loss, preds, targets, ratio = valid_epoch(testloader)
     print(f'\nTest  loss={test_loss:.4f}  |ϕ_ordered|/|ϕ_disordered|={ratio:.3f}')
+
+    # 提取标度律参数
+    model.eval()
+    all_a, all_b, all_g = [], [], []
+    for batch in testloader:
+        batch = batch.to(device)
+        _, v_m = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
+        _, a, b, g = model(batch, v_m, return_components='params')
+        all_a.append(a), all_b.append(b), all_g.append(g)
+    alpha = torch.cat(all_a); beta = torch.cat(all_b); gamma = torch.cat(all_g)
+    print(f'\n标度律参数 (mean ± std per task):')
+    names = ['thermal_diffusivity', 'dielectric_const', 'linear_expansion']
+    for i, name in enumerate(names):
+        print(f'  {name:25s}  α={alpha[:,i].mean():.3f}±{alpha[:,i].std():.3f}  '
+              f'β={beta[:,i].mean():.3f}±{beta[:,i].std():.3f}  '
+              f'γ={gamma[:,i].mean():.3f}±{gamma[:,i].std():.3f}')
 
     # 画图
     from plot_results import plot_all
