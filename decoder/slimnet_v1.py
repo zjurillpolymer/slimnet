@@ -62,7 +62,7 @@ class SlimNet(nn.Module):
             nn.Linear(64, out_channels)
         )
 
-    def forward(self, x, v_monomer):
+    def forward(self, x, v_monomer, return_components=False):
         v_monomer = torch.nan_to_num(v_monomer)
         v_polymer = torch.cat([v_monomer, x.chain], dim=-1)
         v_polymer = F.dropout(v_polymer, p=0.1, training=self.training)
@@ -72,7 +72,10 @@ class SlimNet(nn.Module):
 
         attr_disordered = alpha * torch.clamp(beta ** gamma, max=1e3)
         attr_ordered = self.mlp(x.order)
-        return torch.nan_to_num(attr_disordered + attr_ordered)
+        out = torch.nan_to_num(attr_disordered + attr_ordered)
+        if return_components:
+            return out, attr_disordered.detach(), attr_ordered.detach()
+        return out
 
 
 '''加载权重，训练模型'''
@@ -121,17 +124,23 @@ def valid_epoch(loader):
     encoder.eval()
     total_loss = 0
     all_preds, all_targets = [], []
+    all_ordered, all_disordered = [], []
     for batch in loader:
         batch = batch.to(device)
         out, v_monomer = encoder(batch.z, batch.pos, batch.edge_index, batch.batch, return_v=True)
-        out = model(batch, v_monomer)
+        out, ordered, disordered = model(batch, v_monomer, return_components=True)
         y = batch.y
         loss = F.mse_loss(out, (y - y_mean.to(device)) / y_std.to(device))
         total_loss += loss.item() * batch.num_graphs
         preds = out * y_std.to(device) + y_mean.to(device)
+        all_ordered.append(ordered.cpu())
+        all_disordered.append(disordered.cpu())
         all_preds.append(preds.cpu())
         all_targets.append(y.cpu())
-    return total_loss / len(loader.dataset), torch.cat(all_preds), torch.cat(all_targets)
+    ordered = torch.cat(all_ordered)
+    disordered = torch.cat(all_disordered)
+    ratio = (ordered.abs().mean() / (disordered.abs().mean() + 1e-8)).item()
+    return total_loss / len(loader.dataset), torch.cat(all_preds), torch.cat(all_targets), ratio
 
 
 def main():
@@ -140,7 +149,7 @@ def main():
     best_val_loss = float('inf')
     for epoch in range(1, epochs + 1):
         train_loss = train_epoch(trainloader)
-        val_loss, preds, targets = valid_epoch(validloader)
+        val_loss, preds, targets, ratio = valid_epoch(validloader)
         train_hist.append(train_loss)
         val_hist.append(val_loss)
 
@@ -150,12 +159,13 @@ def main():
 
         if epoch % 10 == 0 or epoch == 1:
             print(f'Epoch {epoch:3d}/{epochs}  '
-                  f'train_loss={train_loss:.4f}  val_loss={val_loss:.4f}')
+                  f'train_loss={train_loss:.4f}  val_loss={val_loss:.4f}  '
+                  f'|ϕ_ordered|/|ϕ_disordered|={ratio:.3f}')
 
     # 测试集
     model.load_state_dict(torch.load(os.path.join(ROOT, 'decoder/best_slimnet.pt')))
-    test_loss, preds, targets = valid_epoch(testloader)
-    print(f'\nTest  loss={test_loss:.4f}')
+    test_loss, preds, targets, ratio = valid_epoch(testloader)
+    print(f'\nTest  loss={test_loss:.4f}  |ϕ_ordered|/|ϕ_disordered|={ratio:.3f}')
 
     # 画图
     from plot_results import plot_all
